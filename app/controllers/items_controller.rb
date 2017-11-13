@@ -126,20 +126,33 @@ class ItemsController < ApplicationController
                 checkTax = doc.xpath('//p[@class="decTxtTaxIncPrice"]')[0].text
 
                 if checkTax.index("税0円") != nil then
-                  listPrice = doc.xpath('//p[@class="decTxtBuyPrice"]')[0].text
+
+                  listPrice = doc.xpath('//p[@class="decTxtBuyPrice"]')[0]
+                  if listPrice != nil then
+                    listPrice = doc.xpath('//p[@class="decTxtBuyPrice"]')[0].text
+                  else
+                    listPrice = doc.xpath('//p[@class="decTxtAucPrice"]')[0].text
+                  end
                   listPrice = CCur(listPrice)
                 else
-                  listPrice = doc.xpath('//p[@class="decTxtTaxIncPrice"]')[0].text
+                  listPrice = doc.xpath('//p[@class="decTxtBuyPrice"]')[0]
+                  if listPrice != nil then
+                    listPrice = doc.xpath('//p[@class="decTxtBuyPrice"]')[0].text
+                  else
+                    listPrice = doc.xpath('//p[@class="decTxtAucPrice"]')[0].text
+                  end
                   listPrice = CCur(listPrice)
                 end
-
+                binPrice = 0
                 bitnum = doc.xpath('//b[@property="auction:Bids"]')[0].text
                 restTime = "終了"
                 k = 0
+                image = []
                 while k < 3
                   image[k] = ""
                   k += 1
                 end
+
               end
             else
               title = ""
