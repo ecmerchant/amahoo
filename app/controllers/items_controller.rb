@@ -147,9 +147,11 @@ class ItemsController < ApplicationController
                 bitnum = doc.xpath('//b[@property="auction:Bids"]')[0].text
                 restTime = "終了"
                 k = 0
+                images = doc.xpath('//li[@title=""]//img')
+
                 image = []
-                while k < 3
-                  image[k] = ""
+                while k < images.length
+                  image[k] = images[k].attribute("src").value
                   k += 1
                 end
 
