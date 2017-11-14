@@ -2,7 +2,7 @@ class AccountsController < ApplicationController
   def regist
     current_email = current_user.email
 
-    if request.post? then
+    if request.patch? then
       @account = Account.new
       data = params[:account]
       logger.debug('\n\nDebug')
@@ -17,7 +17,13 @@ class AccountsController < ApplicationController
             sellerId:data[:sellerId]
           )
         else
-
+          user.AWSkey = data[:AWSkey]
+          user.skey = data[:skey]
+          user.sellerId = data[:sellerId]
+          user.save
+          @res1 = data[:AWSkey]
+          @res2 = data[:skey]
+          @res3 = data[:sellerId]
         end
       end
     else
@@ -26,8 +32,10 @@ class AccountsController < ApplicationController
       logger.debug(Account.select("AWSkey"))
       if temp != nil then
         logger.debug("Account is found")
-
         @account = Account.find_by(email:current_email)
+        @res1 = temp.AWSkey
+        @res2 = temp.skey
+        @res3 = temp.sellerId
       else
         @account = Account.new
       end
