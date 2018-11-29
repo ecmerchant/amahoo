@@ -44,8 +44,8 @@ class ItemsController < ApplicationController
             if url != "" && url != nil  then
               charset = nil
               option = {
-                Accept-Encoding: 'deflate',
-                Accept-Language: 'ja,en-US;q=0.9,en;q=0.8'
+                "Accept-Encoding": "deflate",
+                "Accept-Language": "ja,en-US;q=0.9,en;q=0.8"
               }
               html = open(url, option) do |f|
                 charset = f.charset # 文字種別を取得
