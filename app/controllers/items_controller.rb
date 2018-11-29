@@ -43,7 +43,11 @@ class ItemsController < ApplicationController
             url = result[i][0]
             if url != "" && url != nil  then
               charset = nil
-              html = open(url) do |f|
+              option = {
+                Accept-Encoding: 'deflate',
+                Accept-Language: 'ja,en-US;q=0.9,en;q=0.8'
+              }
+              html = open(url, option) do |f|
                 charset = f.charset # 文字種別を取得
                 f.read # htmlを読み込んで変数htmlに渡す
               end
