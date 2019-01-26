@@ -56,6 +56,7 @@ gem 'tzinfo-data', platforms: [:mingw, :mswin, :x64_mingw, :jruby]
 #gem for html parse
 gem 'nokogiri'
 gem 'gon'
+gem 'typhoeus'
 
 # gem for amazon api accsess
 gem 'peddler'

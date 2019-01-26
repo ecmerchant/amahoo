@@ -42,15 +42,16 @@ class ItemsController < ApplicationController
 
             url = result[i][0]
             if url != "" && url != nil  then
-              charset = nil
-              html = open(url) do |f|
-                charset = f.charset # 文字種別を取得
-                f.read # htmlを読み込んで変数htmlに渡す
-              end
-              doc = Nokogiri::HTML.parse(html, nil, charset)
-
               #ヤフオクの場合
               if url.include?("yahoo") then
+
+                charset = nil
+                html = open(url) do |f|
+                  charset = f.charset # 文字種別を取得
+                  f.read # htmlを読み込んで変数htmlに渡す
+                end
+                doc = Nokogiri::HTML.parse(html, nil, charset)
+
                 if doc.xpath('//p[@class="ptsFin"]')[0] == nil then
                   #商品が出品中の場合
                   title = doc.xpath('//h1[@class="ProductTitle__text"]').text.gsub("\n","")
@@ -159,6 +160,24 @@ class ItemsController < ApplicationController
                 end
               elsif url.include?("mercari") then
                 #メルカリの場合
+                options = {
+                  "Accept" => "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+                  "Accept-Encoding" => "gzip, deflate, br",
+                  "Accept-Language" => "ja,en-US;q=0.9,en;q=0.8",
+                  "Content-Type" => "text/html; charset=UTF-8",
+                  "User-Agent" => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36"
+                }
+                request = Typhoeus::Request.new(
+                  url,
+                  headers: options
+                )
+                request.run
+                html = request.response.body
+                logger.debug(html.encoding)
+                html = html.force_encoding("UTF-8")
+                logger.debug(html)
+                doc = Nokogiri::HTML.parse(html, nil, charset)
+
                 title = doc.xpath('//h1[@class="item-name"]').text.gsub("\n","")
                 auctionID = /jp\/([\s\S]*?)\//.match(url)[1]
                 listPrice = doc.xpath('//span[@class="item-price bold"]').text.gsub("\n","")
