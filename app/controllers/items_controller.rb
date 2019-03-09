@@ -42,154 +42,129 @@ class ItemsController < ApplicationController
 
             url = result[i][0]
             if url != "" && url != nil  then
-              #ヤフオクの場合
-              if url.include?("yahoo") then
+              charset = nil
+              html = open(url) do |f|
+                charset = f.charset # 文字種別を取得
+                f.read # htmlを読み込んで変数htmlに渡す
+              end
+              doc = Nokogiri::HTML.parse(html, nil, charset)
+              if doc.xpath('//p[@class="ptsFin"]')[0] == nil then
 
-                charset = nil
-                html = open(url) do |f|
-                  charset = f.charset # 文字種別を取得
-                  f.read # htmlを読み込んで変数htmlに渡す
+                #商品が出品中の場合
+                title = doc.xpath('//h1[@class="ProductTitle__text"]').text.gsub("\n","")
+                productinfo = doc.xpath('//li[@class="ProductDetail__item"]')
+
+                k = 0
+                while k < productinfo.length
+                  str = productinfo[k].text
+                  if str.include?("状態") == true then
+                    condition = productinfo[k].inner_html.match(/pan>([\s\S]*?)</)[1]
+                  end
+                  if str.include?("オークションID") == true then
+                    auctionID = productinfo[k].inner_html.match(/pan>([\s\S]*?)<\/dd/)[1]
+                  end
+                  k += 1
                 end
-                doc = Nokogiri::HTML.parse(html, nil, charset)
+                k = 0
 
-                if doc.xpath('//p[@class="ptsFin"]')[0] == nil then
-                  #商品が出品中の場合
-                  title = doc.xpath('//h1[@class="ProductTitle__text"]').text.gsub("\n","")
-                  productinfo = doc.xpath('//li[@class="ProductDetail__item"]')
 
-                  k = 0
-                  while k < productinfo.length
-                    str = productinfo[k].text
-                    if str.include?("状態") == true then
-                      condition = productinfo[k].inner_html.match(/pan>([\s\S]*?)</)[1]
-                    end
-                    if str.include?("オークションID") == true then
-                      auctionID = productinfo[k].inner_html.match(/pan>([\s\S]*?)<\/dd/)[1]
-                    end
-                    k += 1
-                  end
-                  k = 0
+                priceType = doc.xpath('//div[@class="Price Price--current"]//dd[@class="Price__value"]')
+                if priceType[0] != nil then
+                  listPrice = priceType[0].text.gsub("\n","")
 
-                  priceType = doc.xpath('//div[@class="Price Price--current"]//dd[@class="Price__value"]')
-                  if priceType[0] != nil then
-                    listPrice = priceType[0].text.gsub("\n","")
-                    logger.debug(listPrice)
-                    if listPrice.include?("（税 0 円）") == true then
-                      listPrice = listPrice.gsub(/（税 0 円）/,"")
-                      listPrice = CCur(listPrice)
-                    else
-                      listPrice = listPrice.match(/税込([\s\S]*?)円/)[1]
-                      listPrice = CCur(listPrice)
-                    end
+                  if listPrice.include?("（税 0 円）") == true then
+                    listPrice = listPrice.gsub(/（税 0 円）/,"")
+                    listPrice = CCur(listPrice)
                   else
-                    listPrice = 0
+                    listPrice = listPrice.match(/税込([\s\S]*?)円/)[1]
+                    listPrice = CCur(listPrice)
                   end
-
-                  priceType = doc.xpath('//div[@class="Price Price--buynow"]//dd[@class="Price__value"]')
-                  if priceType[0] != nil then
-                    binPrice = priceType[0].text.gsub("\n","")
-                    if binPrice.include?("（税 0 円）") == true then
-                      binPrice = binPrice.gsub(/（税 0 円）/,"")
-                      binPrice = CCur(binPrice)
-                    else
-                      binPrice = binPrice.match(/税込([\s\S]*?)円/)[0]
-                      binPrice = binPrice.gsub(/税込/,"")
-                      binPrice = CCur(binPrice)
-                    end
-                  else
-                    binPrice = 0
-                  end
-
-                  bitnum = doc.xpath('//dd[@class="Count__number"]')[0].text
-                  bitnum = bitnum.slice(0,bitnum.length-4)
-
-                  restTime = doc.xpath('//dd[@class="Count__number"]')[1].text
-                  restTime = restTime.slice(0,restTime.length-4)
-
-                  images = doc.xpath('//div[@class="ProductImage__inner"]')
-                  image = []
-
-                  k = 0
-
-                  while k < images.length
-                    str = images[k].inner_html
-                    image[k] = str.match(/src="([\s\S]*?)"/)[1]
-                    k += 1
-                  end
-
                 else
-                  #オークションが終了している場合
-                  logger.debug(i)
-                  title = doc.xpath('//h1[@property="auction:Title"]')[0].text
-                  title = "[終了したオークション]" + title
-                  auctionID = doc.xpath('//td[@property="auction:AuctionID"]')[0].text
-                  condition = doc.xpath('//td[@property="auction:ItemStatus"]')[0].text
-                  binPrice = ""
-                  checkTax = doc.xpath('//p[@class="decTxtTaxIncPrice"]')[0].text
-
-                  listPrice = doc.xpath('//p[@class="decTxtBuyPrice Price__value"]')[0]
-                  if listPrice != nil then
-                    listPrice = doc.xpath('//p[@class="decTxtBuyPrice Price__value"]')[0].text
-                  else
-                    listPrice = doc.xpath('//p[@class="decTxtAucPrice Price__value"]')[0].text
-                  end
-                  listPrice = CCur(listPrice)
-                  binPrice = 0
-                  bitnum = doc.xpath('//b[@property="auction:Bids"]')[0].text
-                  restTime = "終了"
-                  k = 0
-                  image = []
-                  while k < 3
-                    images = doc.xpath('//img[@id="imgsrc' + (k+1).to_s + '"]')
-                    if images[0] != nil then
-                      image[k] = images[0].attribute("src").value
-                    end
-                    k += 1
-                  end
-
+                  listPrice = 0
                 end
-              elsif url.include?("mercari") then
-                #メルカリの場合
-                options = {
-                  "Accept" => "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
-                  "Accept-Encoding" => "gzip, deflate, br",
-                  "Accept-Language" => "ja,en-US;q=0.9,en;q=0.8",
-                  "Content-Type" => "text/html; charset=UTF-8",
-                  "User-Agent" => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36"
-                }
-                request = Typhoeus::Request.new(
-                  url,
-                  headers: options
-                )
-                request.run
-                html = request.response.body
-                logger.debug(html.encoding)
-                html = html.force_encoding("UTF-8")
-                logger.debug(html)
-                doc = Nokogiri::HTML.parse(html, nil, charset)
 
-                title = doc.xpath('//h1[@class="item-name"]').text.gsub("\n","")
-                auctionID = /jp\/([\s\S]*?)\//.match(url)[1]
-                listPrice = doc.xpath('//span[@class="item-price bold"]').text.gsub("\n","")
-                listPrice = listPrice.gsub("￥","").gsub(",","")
-                binPrice = /<span class="item-price bold">¥ ([\s\S]*?)</.match(html)[1]
-                binPrice = binPrice.gsub(",","")
-                listPrice = binPrice
-                condition = /商品の状態<\/th>([\s\S]*?)<\/td>/.match(html)[1]
-                condition = />([\s\S]*?)$/.match(condition)[1]
-                bitnum = "-"
-                restTime = "-"
+                priceType = doc.xpath('//div[@class="Price Price--buynow"]//dd[@class="Price__value"]')
+                if priceType[0] != nil then
+                  binPrice = priceType[0].text.gsub("\n","")
+                  if binPrice.include?("（税 0 円）") == true then
+                    binPrice = binPrice.gsub(/（税 0 円）/,"")
+                    binPrice = CCur(binPrice)
+                  else
+                    binPrice = binPrice.match(/税込([\s\S]*?)円/)[0]
+                    binPrice = binPrice.gsub(/税込/,"")
+                    binPrice = CCur(binPrice)
+                  end
+                else
+                  binPrice = 0
+                end
+
+                bitnum = doc.xpath('//dd[@class="Count__number"]')[0].text
+                bitnum = bitnum.slice(0,bitnum.length-4)
+
+                restTime = doc.xpath('//dd[@class="Count__number"]')[1].text
+                restTime = restTime.slice(0,restTime.length-4)
+
+                images = doc.xpath('//div[@class="ProductImage__inner"]')
+                image = []
+
+                k = 0
+
+                while k < images.length
+                  str = images[k].inner_html
+                  image[k] = str.match(/src="([\s\S]*?)"/)[1]
+                  k += 1
+                end
+
+              else
+                #オークションが終了している場合
+
+                title = doc.xpath('//h1[@property="auction:Title"]')[0].text
+                title = "[終了したオークション]" + title
+
+                auctionID = doc.xpath('//td[@property="auction:AuctionID"]')[0]
+                if auctionID != nil then
+                  auctionID = auctionID.text
+                end
+                condition = doc.xpath('//td[@property="auction:ItemStatus"]')[0]
+                if condition != nil then
+                  condition = condition.text
+                end
+
+                binPrice = ""
+                checkTax = doc.xpath('//p[@class="decTxtTaxIncPrice"]')[0]
+                if checkTax != nil then
+                  checkTax = checkTax.text
+                end
+
+                logger.debug(url)
+
+                listPrice = doc.xpath('//p[@class="decTxtBuyPrice Price__value"]')[0]
+                if listPrice != nil then
+                  listPrice = doc.xpath('//p[@class="decTxtBuyPrice Price__value"]')[0].text
+                else
+                  listPrice = doc.xpath('//p[@class="decTxtAucPrice Price__value"]')[0].text
+                end
+                listPrice = CCur(listPrice)
+                if listPrice != nil then
+                  if listPrice.include?("%") then
+                    listPrice = /^([\s\S]*?)\s/.match(listPrice)[1]
+                  end
+                end
+                binPrice = 0
+                bitnum = doc.xpath('//b[@property="auction:Bids"]')[0]
+                if bitnum != nil then
+                  bitnum = bitnum.text
+                end
+
+                restTime = "終了"
                 k = 0
                 image = []
-                logger.debug("======= debug! =======")
-                temp = html.to_s.scan(/class="owl-item-inner([\s\S]*?)<\/div>/)
-
                 while k < 3
-                  image[k] = /data-src="([\s\S]*?)"/.match(temp[k][0])[1]
-                  logger.debug(k)
-                  logger.debug(image[k])
+                  images = doc.xpath('//img[@id="imgsrc' + (k+1).to_s + '"]')
+                  if images[0] != nil then
+                    image[k] = images[0].attribute("src").value
+                  end
                   k += 1
-                  if k > temp.length - 1 then break end
                 end
               end
             else
@@ -208,6 +183,7 @@ class ItemsController < ApplicationController
               end
             end
             title = title.gsub("\t", "")
+
             res[i] = [url,title,auctionID,listPrice,binPrice,condition,bitnum,restTime,image[0],image[1],image[2]]
 
             process += 1
